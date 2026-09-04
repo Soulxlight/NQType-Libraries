@@ -1,0 +1,19 @@
+{
+  "version": "workspace/v1",
+  "workspace": {
+    "name": "nauqtype.std.core_tests",
+    "source_roots": ["src"],
+    "entrypoints": {
+      "core-tests": "main",
+      "authority-tests": "authority",
+      "binary-tests": "binary"
+    }
+  },
+  "dependencies": [
+    {
+      "alias": "std",
+      "path": "../..",
+      "workspace": "nauqtype.std"
+    }
+  ]
+}

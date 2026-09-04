@@ -1,0 +1,300 @@
+use std::env as env;
+use std::stdio as stdio;
+
+fn list_item_equals(items: ref list<str>, index: i32, expected: str) -> bool {
+    let current = list_get(ref items, index);
+    match current {
+        Some(value) => {
+            return value == expected;
+        },
+        None => {
+            return false;
+        },
+    }
+}
+
+fn check_no_arguments() -> i32 {
+    if env::argument_count() != 0 {
+        return 1;
+    }
+    match env::program_argument() {
+        Some(value) => {
+            if str_len(value) == 0 {
+                return 2;
+            }
+        },
+        None => {
+            return 3;
+        },
+    }
+    match env::argument_at(0) {
+        Some(_) => {
+            return 4;
+        },
+        None => {
+        },
+    }
+    let values = env::arguments();
+    if list_len(ref values) != 0 {
+        return 5;
+    }
+    return 0;
+}
+
+fn check_arguments() -> i32 {
+    if env::argument_count() != 3 {
+        return 1;
+    }
+    match env::program_argument() {
+        Some(value) => {
+            if str_len(value) == 0 {
+                return 2;
+            }
+        },
+        None => {
+            return 3;
+        },
+    }
+    match env::argument_at(0) {
+        Some(value) => {
+            if value != "probe" {
+                return 4;
+            }
+        },
+        None => {
+            return 5;
+        },
+    }
+    match env::argument_at(1) {
+        Some(value) => {
+            if value != "alpha" {
+                return 6;
+            }
+        },
+        None => {
+            return 7;
+        },
+    }
+    match env::argument_at(2) {
+        Some(value) => {
+            if value != "beta" {
+                return 8;
+            }
+        },
+        None => {
+            return 9;
+        },
+    }
+    match env::argument_at(3) {
+        Some(_) => {
+            return 10;
+        },
+        None => {
+        },
+    }
+    match env::argument_at(-1) {
+        Some(_) => {
+            return 11;
+        },
+        None => {
+        },
+    }
+
+    let values = env::arguments();
+    if list_len(ref values) != 3 {
+        return 12;
+    }
+    if not list_item_equals(ref values, 0, "probe") {
+        return 13;
+    }
+    if not list_item_equals(ref values, 1, "alpha") {
+        return 14;
+    }
+    if not list_item_equals(ref values, 2, "beta") {
+        return 15;
+    }
+    return 0;
+}
+
+fn check_environment() -> i32 {
+    match env::environment_get("NQTYPE_LIB_PRESENT") {
+        Ok(maybe) => {
+            match maybe {
+                Some(value) => {
+                    if value != "present-value" {
+                        return 1;
+                    }
+                },
+                None => {
+                    return 2;
+                },
+            }
+        },
+        Err(_) => {
+            return 3;
+        },
+    }
+    match env::environment_get("NQTYPE_LIB_EMPTY") {
+        Ok(maybe) => {
+            match maybe {
+                Some(value) => {
+                    if value != "" {
+                        return 4;
+                    }
+                },
+                None => {
+                    return 5;
+                },
+            }
+        },
+        Err(_) => {
+            return 6;
+        },
+    }
+    match env::environment_get("NQTYPE_LIB_INTENTIONALLY_MISSING_7A93") {
+        Ok(maybe) => {
+            match maybe {
+                Some(_) => {
+                    return 7;
+                },
+                None => {
+                },
+            }
+        },
+        Err(_) => {
+            return 8;
+        },
+    }
+
+    let mut expected_directory = "";
+    match env::environment_get("NQTYPE_LIB_EXPECTED_CWD") {
+        Ok(maybe) => {
+            match maybe {
+                Some(value) => {
+                    expected_directory = value;
+                },
+                None => {
+                    return 9;
+                },
+            }
+        },
+        Err(_) => {
+            return 10;
+        },
+    }
+    match env::working_directory() {
+        Ok(value) => {
+            if value != expected_directory {
+                return 11;
+            }
+        },
+        Err(_) => {
+            return 12;
+        },
+    }
+    return 0;
+}
+
+fn exercise_text_streams() -> i32 {
+    let mut first_line = "";
+    match stdio::read_stdin_line() {
+        Ok(maybe) => {
+            match maybe {
+                Some(value) => {
+                    first_line = value;
+                },
+                None => {
+                    return 1;
+                },
+            }
+        },
+        Err(_) => {
+            return 2;
+        },
+    }
+
+    let mut remaining = "";
+    match stdio::read_stdin() {
+        Ok(value) => {
+            remaining = value;
+        },
+        Err(_) => {
+            return 3;
+        },
+    }
+    match stdio::write_stdout("out:") {
+        Ok(_) => {
+        },
+        Err(_) => {
+            return 4;
+        },
+    }
+    match stdio::write_stdout_line(first_line) {
+        Ok(_) => {
+        },
+        Err(_) => {
+            return 5;
+        },
+    }
+    match stdio::write_stdout(remaining) {
+        Ok(_) => {
+        },
+        Err(_) => {
+            return 6;
+        },
+    }
+    match stdio::flush_stdout() {
+        Ok(_) => {
+        },
+        Err(_) => {
+            return 7;
+        },
+    }
+    match stdio::write_stderr("e") {
+        Ok(_) => {
+        },
+        Err(_) => {
+            return 8;
+        },
+    }
+    match stdio::write_stderr_line("rr") {
+        Ok(_) => {
+        },
+        Err(_) => {
+            return 9;
+        },
+    }
+    match stdio::flush_stderr() {
+        Ok(_) => {
+        },
+        Err(_) => {
+            return 10;
+        },
+    }
+    return 0;
+}
+
+fn main() -> i32
+audit {
+    intent("Exercise argument, environment, cwd, and text-stream library wrappers.");
+    mutates();
+    effects(io);
+}
+{
+    if env::argument_count() == 0 {
+        return check_no_arguments();
+    }
+    let argument_code = check_arguments();
+    if argument_code != 0 {
+        return argument_code;
+    }
+    let environment_code = check_environment();
+    if environment_code != 0 {
+        return 20 + environment_code;
+    }
+    let stream_code = exercise_text_streams();
+    if stream_code != 0 {
+        return 40 + stream_code;
+    }
+    return 0;
+}

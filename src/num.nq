@@ -1,0 +1,270 @@
+pub enum NqParseIntError {
+    ParseEmpty,
+    ParseSignOnly,
+    ParseInvalidDigit(i32),
+    ParseOverflow(i32),
+}
+
+fn decimal_digit_i32(byte_value: i32) -> i32 {
+    return byte_value - 48;
+}
+
+fn decimal_digit_i64(byte_value: i32) -> i64 {
+    if byte_value == 48 { return 0; }
+    if byte_value == 49 { return 1; }
+    if byte_value == 50 { return 2; }
+    if byte_value == 51 { return 3; }
+    if byte_value == 52 { return 4; }
+    if byte_value == 53 { return 5; }
+    if byte_value == 54 { return 6; }
+    if byte_value == 55 { return 7; }
+    if byte_value == 56 { return 8; }
+    return 9;
+}
+
+fn is_decimal_digit(byte_value: i32) -> bool {
+    return byte_value >= 48 and byte_value <= 57;
+}
+
+fn byte_or_negative(value: str, byte_index: i32) -> i32 {
+    let current = str_get(value, byte_index);
+    match current {
+        Some(byte_value) => {
+            return byte_value;
+        },
+        None => {
+            return -1;
+        },
+    }
+}
+
+pub fn parse_i32(value: str) -> result<i32, NqParseIntError>
+audit {
+    intent("Parse one complete base-10 i32 with an optional leading sign and checked overflow.");
+    mutates();
+    effects();
+}
+{
+    if str_len(value) == 0 {
+        return Err(ParseEmpty);
+    }
+
+    let mut byte_index = 0;
+    let mut negative = false;
+    let first = byte_or_negative(value, 0);
+    if first == 45 or first == 43 {
+        negative = first == 45;
+        byte_index = 1;
+    }
+    if byte_index == str_len(value) {
+        return Err(ParseSignOnly);
+    }
+
+    let mut limit = -2147483647;
+    if negative {
+        limit = -2147483647 - 1;
+    }
+    let multiply_limit = limit / 10;
+    let mut accumulated = 0;
+    while byte_index < str_len(value) {
+        let current = byte_or_negative(value, byte_index);
+        if not is_decimal_digit(current) {
+            return Err(ParseInvalidDigit(byte_index));
+        }
+        let digit = decimal_digit_i32(current);
+        if accumulated < multiply_limit {
+            return Err(ParseOverflow(byte_index));
+        }
+        accumulated = accumulated * 10;
+        if accumulated < limit + digit {
+            return Err(ParseOverflow(byte_index));
+        }
+        accumulated = accumulated - digit;
+        byte_index = byte_index + 1;
+    }
+
+    if negative {
+        return Ok(accumulated);
+    }
+    return Ok(0 - accumulated);
+}
+
+pub fn parse_i64(value: str) -> result<i64, NqParseIntError>
+audit {
+    intent("Parse one complete base-10 i64 with an optional leading sign and checked overflow.");
+    mutates();
+    effects();
+}
+{
+    if str_len(value) == 0 {
+        return Err(ParseEmpty);
+    }
+
+    let mut byte_index = 0;
+    let mut negative = false;
+    let first = byte_or_negative(value, 0);
+    if first == 45 or first == 43 {
+        negative = first == 45;
+        byte_index = 1;
+    }
+    if byte_index == str_len(value) {
+        return Err(ParseSignOnly);
+    }
+
+    let mut limit: i64 = -9223372036854775807;
+    if negative {
+        limit = -9223372036854775807 - 1;
+    }
+    let multiply_limit: i64 = limit / 10;
+    let mut accumulated: i64 = 0;
+    while byte_index < str_len(value) {
+        let current = byte_or_negative(value, byte_index);
+        if not is_decimal_digit(current) {
+            return Err(ParseInvalidDigit(byte_index));
+        }
+        let digit: i64 = decimal_digit_i64(current);
+        if accumulated < multiply_limit {
+            return Err(ParseOverflow(byte_index));
+        }
+        accumulated = accumulated * 10;
+        if accumulated < limit + digit {
+            return Err(ParseOverflow(byte_index));
+        }
+        accumulated = accumulated - digit;
+        byte_index = byte_index + 1;
+    }
+
+    if negative {
+        return Ok(accumulated);
+    }
+    let zero: i64 = 0;
+    return Ok(zero - accumulated);
+}
+
+fn digit_text_i32(value: i32) -> str {
+    if value == 0 { return "0"; }
+    if value == 1 { return "1"; }
+    if value == 2 { return "2"; }
+    if value == 3 { return "3"; }
+    if value == 4 { return "4"; }
+    if value == 5 { return "5"; }
+    if value == 6 { return "6"; }
+    if value == 7 { return "7"; }
+    if value == 8 { return "8"; }
+    return "9";
+}
+
+fn digit_text_i64(value: i64) -> str {
+    if value == 0 { return "0"; }
+    if value == 1 { return "1"; }
+    if value == 2 { return "2"; }
+    if value == 3 { return "3"; }
+    if value == 4 { return "4"; }
+    if value == 5 { return "5"; }
+    if value == 6 { return "6"; }
+    if value == 7 { return "7"; }
+    if value == 8 { return "8"; }
+    return "9";
+}
+
+pub fn i32_to_decimal(value: i32) -> str
+audit {
+    intent("Render every i32, including its minimum value, as canonical decimal text.");
+    mutates();
+    effects();
+}
+{
+    if value == 0 {
+        return "0";
+    }
+
+    let negative = value < 0;
+    let mut remaining = value;
+    if not negative {
+        remaining = 0 - value;
+    }
+    let mut reversed: list<str> = list();
+    while remaining < 0 {
+        let quotient = remaining / 10;
+        let digit = 0 - (remaining - (quotient * 10));
+        list_push(mutref reversed, digit_text_i32(digit));
+        remaining = quotient;
+    }
+
+    let mut rendered = "";
+    if negative {
+        rendered = "-";
+    }
+    let mut index = list_len(ref reversed) - 1;
+    while index >= 0 {
+        let current = list_get(ref reversed, index);
+        match current {
+            Some(digit_text) => {
+                rendered = str_concat(rendered, digit_text);
+            },
+            None => {
+            },
+        }
+        index = index - 1;
+    }
+    return rendered;
+}
+
+pub fn i64_to_decimal(value: i64) -> str
+audit {
+    intent("Render every i64, including its minimum value, as canonical decimal text.");
+    mutates();
+    effects();
+}
+{
+    let zero: i64 = 0;
+    if value == zero {
+        return "0";
+    }
+
+    let negative = value < zero;
+    let mut remaining: i64 = value;
+    if not negative {
+        remaining = zero - value;
+    }
+    let mut reversed: list<str> = list();
+    while remaining < zero {
+        let quotient: i64 = remaining / 10;
+        let digit: i64 = zero - (remaining - (quotient * 10));
+        list_push(mutref reversed, digit_text_i64(digit));
+        remaining = quotient;
+    }
+
+    let mut rendered = "";
+    if negative {
+        rendered = "-";
+    }
+    let mut index = list_len(ref reversed) - 1;
+    while index >= 0 {
+        let current = list_get(ref reversed, index);
+        match current {
+            Some(digit_text) => {
+                rendered = str_concat(rendered, digit_text);
+            },
+            None => {
+            },
+        }
+        index = index - 1;
+    }
+    return rendered;
+}
+
+pub fn parse_error_index(error: NqParseIntError) -> option<i32>
+audit {
+    intent("Return the offending byte index when an integer parse error carries one.");
+    mutates();
+    effects();
+}
+{
+    match error {
+        ParseEmpty => { return None; },
+        ParseSignOnly => { return None; },
+        ParseInvalidDigit(index) => { return Some(index); },
+        ParseOverflow(index) => { return Some(index); },
+    }
+}

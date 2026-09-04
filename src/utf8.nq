@@ -1,0 +1,308 @@
+pub type NqUtf8Step {
+    code_point: i32,
+    next_byte: i32,
+}
+
+pub enum NqUtf8Error {
+    Utf8ByteIndexOutOfBounds(i32),
+    Utf8CodePointIndexOutOfBounds(i32),
+    Utf8UnexpectedContinuation(i32),
+    Utf8UnexpectedEnd(i32),
+    Utf8InvalidContinuation(i32),
+    Utf8OverlongEncoding(i32),
+    Utf8SurrogateCodePoint(i32),
+    Utf8CodePointTooLarge(i32),
+}
+
+fn byte_or_negative(value: str, byte_index: i32) -> i32 {
+    let current = str_get(value, byte_index);
+    match current {
+        Some(byte_value) => {
+            return byte_value;
+        },
+        None => {
+            return -1;
+        },
+    }
+}
+
+fn is_continuation(byte_value: i32) -> bool {
+    return byte_value >= 128 and byte_value <= 191;
+}
+
+fn continuation_payload(byte_value: i32) -> i32 {
+    return byte_value - 128;
+}
+
+fn unit_value() -> unit {
+    return;
+}
+
+fn decode_two(value: str, byte_index: i32, lead: i32) -> result<NqUtf8Step, NqUtf8Error> {
+    if byte_index + 1 >= str_len(value) {
+        return Err(Utf8UnexpectedEnd(byte_index));
+    }
+    let second = byte_or_negative(value, byte_index + 1);
+    if not is_continuation(second) {
+        return Err(Utf8InvalidContinuation(byte_index + 1));
+    }
+    let code_point = ((lead - 192) * 64) + continuation_payload(second);
+    return Ok(NqUtf8Step { code_point: code_point, next_byte: byte_index + 2 });
+}
+
+fn decode_three(value: str, byte_index: i32, lead: i32) -> result<NqUtf8Step, NqUtf8Error> {
+    if byte_index + 2 >= str_len(value) {
+        return Err(Utf8UnexpectedEnd(byte_index));
+    }
+    let second = byte_or_negative(value, byte_index + 1);
+    let third = byte_or_negative(value, byte_index + 2);
+    if not is_continuation(second) {
+        return Err(Utf8InvalidContinuation(byte_index + 1));
+    }
+    if not is_continuation(third) {
+        return Err(Utf8InvalidContinuation(byte_index + 2));
+    }
+    if lead == 224 and second < 160 {
+        return Err(Utf8OverlongEncoding(byte_index));
+    }
+    if lead == 237 and second >= 160 {
+        return Err(Utf8SurrogateCodePoint(byte_index));
+    }
+    let code_point = ((lead - 224) * 4096) + (continuation_payload(second) * 64) + continuation_payload(third);
+    return Ok(NqUtf8Step { code_point: code_point, next_byte: byte_index + 3 });
+}
+
+fn decode_four(value: str, byte_index: i32, lead: i32) -> result<NqUtf8Step, NqUtf8Error> {
+    if byte_index + 3 >= str_len(value) {
+        return Err(Utf8UnexpectedEnd(byte_index));
+    }
+    let second = byte_or_negative(value, byte_index + 1);
+    let third = byte_or_negative(value, byte_index + 2);
+    let fourth = byte_or_negative(value, byte_index + 3);
+    if not is_continuation(second) {
+        return Err(Utf8InvalidContinuation(byte_index + 1));
+    }
+    if not is_continuation(third) {
+        return Err(Utf8InvalidContinuation(byte_index + 2));
+    }
+    if not is_continuation(fourth) {
+        return Err(Utf8InvalidContinuation(byte_index + 3));
+    }
+    if lead == 240 and second < 144 {
+        return Err(Utf8OverlongEncoding(byte_index));
+    }
+    if lead == 244 and second > 143 {
+        return Err(Utf8CodePointTooLarge(byte_index));
+    }
+    let code_point = ((lead - 240) * 262144) + (continuation_payload(second) * 4096) + (continuation_payload(third) * 64) + continuation_payload(fourth);
+    return Ok(NqUtf8Step { code_point: code_point, next_byte: byte_index + 4 });
+}
+
+pub fn decode_at(value: str, byte_index: i32) -> result<NqUtf8Step, NqUtf8Error>
+audit {
+    intent("Decode one UTF-8 code point beginning at an explicit byte index.");
+    mutates();
+    effects();
+}
+{
+    if byte_index < 0 or byte_index >= str_len(value) {
+        return Err(Utf8ByteIndexOutOfBounds(byte_index));
+    }
+    let lead = byte_or_negative(value, byte_index);
+    if lead <= 127 {
+        return Ok(NqUtf8Step { code_point: lead, next_byte: byte_index + 1 });
+    }
+    if lead >= 128 and lead <= 191 {
+        return Err(Utf8UnexpectedContinuation(byte_index));
+    }
+    if lead == 192 or lead == 193 {
+        return Err(Utf8OverlongEncoding(byte_index));
+    }
+    if lead >= 194 and lead <= 223 {
+        return decode_two(value, byte_index, lead);
+    }
+    if lead >= 224 and lead <= 239 {
+        return decode_three(value, byte_index, lead);
+    }
+    if lead >= 240 and lead <= 244 {
+        return decode_four(value, byte_index, lead);
+    }
+    if lead >= 245 {
+        return Err(Utf8CodePointTooLarge(byte_index));
+    }
+    return Err(Utf8CodePointTooLarge(byte_index));
+}
+
+pub fn validate(value: str) -> result<unit, NqUtf8Error>
+audit {
+    intent("Validate an entire byte string as canonical UTF-8.");
+    mutates();
+    effects();
+}
+{
+    let mut byte_index = 0;
+    while byte_index < str_len(value) {
+        let decoded = decode_at(value, byte_index);
+        match decoded {
+            Ok(step) => {
+                byte_index = step.next_byte;
+            },
+            Err(error) => {
+                return Err(error);
+            },
+        }
+    }
+    return Ok(unit_value());
+}
+
+pub fn is_valid(value: str) -> bool
+audit {
+    intent("Report whether a byte string is canonical UTF-8.");
+    mutates();
+    effects();
+}
+{
+    let validated = validate(value);
+    match validated {
+        Ok(_) => {
+            return true;
+        },
+        Err(_) => {
+            return false;
+        },
+    }
+}
+
+pub fn code_point_count(value: str) -> result<i32, NqUtf8Error>
+audit {
+    intent("Count Unicode scalar values after validating UTF-8 while traversing it.");
+    mutates();
+    effects();
+}
+{
+    let mut byte_index = 0;
+    let mut count = 0;
+    while byte_index < str_len(value) {
+        let decoded = decode_at(value, byte_index);
+        match decoded {
+            Ok(step) => {
+                byte_index = step.next_byte;
+                count = count + 1;
+            },
+            Err(error) => {
+                return Err(error);
+            },
+        }
+    }
+    return Ok(count);
+}
+
+pub fn code_point_at(value: str, code_point_index: i32) -> result<i32, NqUtf8Error>
+audit {
+    intent("Return the Unicode scalar value at a zero-based code-point index.");
+    mutates();
+    effects();
+}
+{
+    if code_point_index < 0 {
+        return Err(Utf8CodePointIndexOutOfBounds(code_point_index));
+    }
+    let mut byte_index = 0;
+    let mut current_index = 0;
+    while byte_index < str_len(value) {
+        let decoded = decode_at(value, byte_index);
+        match decoded {
+            Ok(step) => {
+                if current_index == code_point_index {
+                    return Ok(step.code_point);
+                }
+                byte_index = step.next_byte;
+                current_index = current_index + 1;
+            },
+            Err(error) => {
+                return Err(error);
+            },
+        }
+    }
+    return Err(Utf8CodePointIndexOutOfBounds(code_point_index));
+}
+
+fn byte_index_for(value: str, code_point_index: i32) -> result<i32, NqUtf8Error> {
+    if code_point_index < 0 {
+        return Err(Utf8CodePointIndexOutOfBounds(code_point_index));
+    }
+    let mut byte_index = 0;
+    let mut current_index = 0;
+    while current_index < code_point_index and byte_index < str_len(value) {
+        let decoded = decode_at(value, byte_index);
+        match decoded {
+            Ok(step) => {
+                byte_index = step.next_byte;
+                current_index = current_index + 1;
+            },
+            Err(error) => {
+                return Err(error);
+            },
+        }
+    }
+    if current_index == code_point_index {
+        return Ok(byte_index);
+    }
+    return Err(Utf8CodePointIndexOutOfBounds(code_point_index));
+}
+
+pub fn slice_code_points(value: str, start_index: i32, end_index: i32) -> result<str, NqUtf8Error>
+audit {
+    intent("Return a half-open code-point slice after validating every traversed sequence.");
+    mutates();
+    effects();
+}
+{
+    if start_index < 0 or end_index < start_index {
+        return Err(Utf8CodePointIndexOutOfBounds(start_index));
+    }
+    let start_byte_result = byte_index_for(value, start_index);
+    match start_byte_result {
+        Ok(start_byte) => {
+            let end_byte_result = byte_index_for(value, end_index);
+            match end_byte_result {
+                Ok(end_byte) => {
+                    let sliced = str_slice(value, start_byte, end_byte);
+                    match sliced {
+                        Some(part) => {
+                            return Ok(part);
+                        },
+                        None => {
+                            return Err(Utf8ByteIndexOutOfBounds(start_byte));
+                        },
+                    }
+                },
+                Err(error) => {
+                    return Err(error);
+                },
+            }
+        },
+        Err(error) => {
+            return Err(error);
+        },
+    }
+}
+
+pub fn utf8_error_index(error: NqUtf8Error) -> i32
+audit {
+    intent("Return the byte or code-point index carried by a UTF-8 error.");
+    mutates();
+    effects();
+}
+{
+    match error {
+        Utf8ByteIndexOutOfBounds(index) => { return index; },
+        Utf8CodePointIndexOutOfBounds(index) => { return index; },
+        Utf8UnexpectedContinuation(index) => { return index; },
+        Utf8UnexpectedEnd(index) => { return index; },
+        Utf8InvalidContinuation(index) => { return index; },
+        Utf8OverlongEncoding(index) => { return index; },
+        Utf8SurrogateCodePoint(index) => { return index; },
+        Utf8CodePointTooLarge(index) => { return index; },
+    }
+}

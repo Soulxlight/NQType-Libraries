@@ -1,0 +1,111 @@
+pub fn read_stdin() -> result<str, io_err>
+audit {
+    intent("Read all remaining standard input as an unvalidated byte string.");
+    mutates();
+    effects(io);
+}
+{
+    return stdin_read();
+}
+
+pub fn read_stdin_bytes() -> result<bytes, io_err>
+audit {
+    intent("Read all remaining standard input into an owned byte buffer.");
+    mutates();
+    effects(io);
+}
+{
+    return stdin_read_bytes();
+}
+
+pub fn read_stdin_line() -> result<option<str>, io_err>
+audit {
+    intent("Read one standard-input line using the frozen M54 line contract.");
+    mutates();
+    effects(io);
+}
+{
+    return stdin_read_line();
+}
+
+pub fn write_stdout(value: str) -> result<unit, io_err>
+audit {
+    intent("Write an unmodified byte string to standard output without flushing.");
+    mutates();
+    effects(io);
+}
+{
+    return stdout_write(value);
+}
+
+pub fn write_stdout_bytes(value: ref bytes) -> result<unit, io_err>
+audit {
+    intent("Borrow and write bytes to standard output without flushing.");
+    mutates();
+    effects(io);
+}
+{
+    return stdout_write_bytes(value);
+}
+
+pub fn write_stdout_line(value: str) -> result<unit, io_err>
+audit {
+    intent("Write a byte string followed by one line-feed without flushing.");
+    mutates();
+    effects(io);
+}
+{
+    let line = str_concat(value, "\n");
+    return stdout_write(line);
+}
+
+pub fn flush_stdout() -> result<unit, io_err>
+audit {
+    intent("Flush standard output and report any delivery failure.");
+    mutates();
+    effects(io);
+}
+{
+    return stdout_flush();
+}
+
+pub fn write_stderr(value: str) -> result<unit, io_err>
+audit {
+    intent("Write an unmodified byte string to standard error without flushing.");
+    mutates();
+    effects(io);
+}
+{
+    return stderr_write(value);
+}
+
+pub fn write_stderr_bytes(value: ref bytes) -> result<unit, io_err>
+audit {
+    intent("Borrow and write bytes to standard error without flushing.");
+    mutates();
+    effects(io);
+}
+{
+    return stderr_write_bytes(value);
+}
+
+pub fn write_stderr_line(value: str) -> result<unit, io_err>
+audit {
+    intent("Write a byte string followed by one line-feed to standard error without flushing.");
+    mutates();
+    effects(io);
+}
+{
+    let line = str_concat(value, "\n");
+    return stderr_write(line);
+}
+
+pub fn flush_stderr() -> result<unit, io_err>
+audit {
+    intent("Flush standard error and report any delivery failure.");
+    mutates();
+    effects(io);
+}
+{
+    return stderr_flush();
+}

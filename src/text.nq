@@ -1,0 +1,352 @@
+pub fn byte_len(value: str) -> i32
+audit {
+    intent("Return the number of bytes in a string.");
+    mutates();
+    effects();
+}
+{
+    return str_len(value);
+}
+
+pub fn byte_at(value: str, byte_index: i32) -> option<i32>
+audit {
+    intent("Return one byte value, or None when the byte index is out of bounds.");
+    mutates();
+    effects();
+}
+{
+    return str_get(value, byte_index);
+}
+
+pub fn byte_slice(value: str, start_byte: i32, end_byte: i32) -> option<str>
+audit {
+    intent("Return a half-open byte slice without claiming UTF-8 boundary validation.");
+    mutates();
+    effects();
+}
+{
+    return str_slice(value, start_byte, end_byte);
+}
+
+fn slice_or_empty(value: str, start_byte: i32, end_byte: i32) -> str {
+    let sliced = str_slice(value, start_byte, end_byte);
+    match sliced {
+        Some(part) => {
+            return part;
+        },
+        None => {
+            return "";
+        },
+    }
+}
+
+fn matches_at(value: str, byte_index: i32, pattern: str) -> bool {
+    if byte_index < 0 {
+        return false;
+    }
+    let value_length = str_len(value);
+    let pattern_length = str_len(pattern);
+    if byte_index > value_length {
+        return false;
+    }
+    if pattern_length > value_length - byte_index {
+        return false;
+    }
+    let mut offset = 0;
+    while offset < pattern_length {
+        let value_byte = str_get(value, byte_index + offset);
+        let pattern_byte = str_get(pattern, offset);
+        match value_byte {
+            Some(left) => {
+                match pattern_byte {
+                    Some(right) => {
+                        if left != right {
+                            return false;
+                        }
+                    },
+                    None => {
+                        return false;
+                    },
+                }
+            },
+            None => {
+                return false;
+            },
+        }
+        offset = offset + 1;
+    }
+    return true;
+}
+
+pub fn starts_with(value: str, prefix: str) -> bool
+audit {
+    intent("Test whether a string starts with a literal byte sequence.");
+    mutates();
+    effects();
+}
+{
+    return matches_at(value, 0, prefix);
+}
+
+pub fn ends_with(value: str, suffix: str) -> bool
+audit {
+    intent("Test whether a string ends with a literal byte sequence.");
+    mutates();
+    effects();
+}
+{
+    let value_length = str_len(value);
+    let suffix_length = str_len(suffix);
+    if suffix_length > value_length {
+        return false;
+    }
+    return matches_at(value, value_length - suffix_length, suffix);
+}
+
+pub fn find_from(value: str, pattern: str, start_byte: i32) -> option<i32>
+audit {
+    intent("Find the first literal byte sequence at or after a clamped byte index.");
+    mutates();
+    effects();
+}
+{
+    let value_length = str_len(value);
+    let pattern_length = str_len(pattern);
+    let mut cursor = start_byte;
+    if cursor < 0 {
+        cursor = 0;
+    }
+    if cursor > value_length {
+        return None;
+    }
+    if pattern_length == 0 {
+        return Some(cursor);
+    }
+    if pattern_length > value_length - cursor {
+        return None;
+    }
+    while cursor <= value_length - pattern_length {
+        if matches_at(value, cursor, pattern) {
+            return Some(cursor);
+        }
+        cursor = cursor + 1;
+    }
+    return None;
+}
+
+pub fn find(value: str, pattern: str) -> option<i32>
+audit {
+    intent("Find the first literal byte sequence.");
+    mutates();
+    effects();
+}
+{
+    return find_from(value, pattern, 0);
+}
+
+pub fn rfind(value: str, pattern: str) -> option<i32>
+audit {
+    intent("Find the final literal byte sequence.");
+    mutates();
+    effects();
+}
+{
+    let value_length = str_len(value);
+    let pattern_length = str_len(pattern);
+    if pattern_length > value_length {
+        return None;
+    }
+    let mut cursor = value_length - pattern_length;
+    while cursor >= 0 {
+        if matches_at(value, cursor, pattern) {
+            return Some(cursor);
+        }
+        cursor = cursor - 1;
+    }
+    return None;
+}
+
+pub fn contains(value: str, pattern: str) -> bool
+audit {
+    intent("Test whether a string contains a literal byte sequence.");
+    mutates();
+    effects();
+}
+{
+    let found = find(value, pattern);
+    match found {
+        Some(_) => {
+            return true;
+        },
+        None => {
+            return false;
+        },
+    }
+}
+
+pub fn strip_prefix(value: str, prefix: str) -> option<str>
+audit {
+    intent("Remove one literal prefix when present.");
+    mutates();
+    effects();
+}
+{
+    if not starts_with(value, prefix) {
+        return None;
+    }
+    return str_slice(value, str_len(prefix), str_len(value));
+}
+
+pub fn strip_suffix(value: str, suffix: str) -> option<str>
+audit {
+    intent("Remove one literal suffix when present.");
+    mutates();
+    effects();
+}
+{
+    if not ends_with(value, suffix) {
+        return None;
+    }
+    return str_slice(value, 0, str_len(value) - str_len(suffix));
+}
+
+fn is_ascii_whitespace(byte_value: i32) -> bool {
+    return byte_value == 9 or byte_value == 10 or byte_value == 11 or byte_value == 12 or byte_value == 13 or byte_value == 32;
+}
+
+pub fn trim_ascii_start(value: str) -> str
+audit {
+    intent("Remove leading ASCII whitespace without interpreting non-ASCII bytes.");
+    mutates();
+    effects();
+}
+{
+    let mut start_byte = 0;
+    let value_length = str_len(value);
+    let mut scanning = true;
+    while scanning and start_byte < value_length {
+        let current = str_get(value, start_byte);
+        match current {
+            Some(byte_value) => {
+                if is_ascii_whitespace(byte_value) {
+                    start_byte = start_byte + 1;
+                } else {
+                    scanning = false;
+                }
+            },
+            None => {
+                scanning = false;
+            },
+        }
+    }
+    return slice_or_empty(value, start_byte, value_length);
+}
+
+pub fn trim_ascii_end(value: str) -> str
+audit {
+    intent("Remove trailing ASCII whitespace without interpreting non-ASCII bytes.");
+    mutates();
+    effects();
+}
+{
+    let mut end_byte = str_len(value);
+    let mut scanning = true;
+    while scanning and end_byte > 0 {
+        let current = str_get(value, end_byte - 1);
+        match current {
+            Some(byte_value) => {
+                if is_ascii_whitespace(byte_value) {
+                    end_byte = end_byte - 1;
+                } else {
+                    scanning = false;
+                }
+            },
+            None => {
+                scanning = false;
+            },
+        }
+    }
+    return slice_or_empty(value, 0, end_byte);
+}
+
+pub fn trim_ascii(value: str) -> str
+audit {
+    intent("Remove leading and trailing ASCII whitespace.");
+    mutates();
+    effects();
+}
+{
+    return trim_ascii_end(trim_ascii_start(value));
+}
+
+pub fn split_literal(value: str, separator: str) -> list<str>
+audit {
+    intent("Split on non-overlapping literal byte sequences, preserving empty fields.");
+    mutates();
+    effects();
+}
+{
+    let mut parts: list<str> = list();
+    if separator == "" {
+        list_push(mutref parts, value);
+    } else {
+        let mut field_start = 0;
+        let mut scanning = true;
+        while scanning {
+            let found = find_from(value, separator, field_start);
+            match found {
+                Some(separator_at) => {
+                    let field = slice_or_empty(value, field_start, separator_at);
+                    list_push(mutref parts, field);
+                    field_start = separator_at + str_len(separator);
+                },
+                None => {
+                    let field = slice_or_empty(value, field_start, str_len(value));
+                    list_push(mutref parts, field);
+                    scanning = false;
+                },
+            }
+        }
+    }
+    return parts;
+}
+
+pub fn join(parts: ref list<str>, separator: str) -> str
+audit {
+    intent("Join string values with a literal separator.");
+    mutates();
+    effects();
+}
+{
+    let mut rendered = "";
+    let mut index = 0;
+    while index < list_len(ref parts) {
+        let part = list_get(ref parts, index);
+        match part {
+            Some(value) => {
+                if index > 0 {
+                    rendered = str_concat(rendered, separator);
+                }
+                rendered = str_concat(rendered, value);
+            },
+            None => {
+            },
+        }
+        index = index + 1;
+    }
+    return rendered;
+}
+
+pub fn replace_all(value: str, pattern: str, replacement: str) -> str
+audit {
+    intent("Replace non-overlapping literal byte sequences from left to right.");
+    mutates();
+    effects();
+}
+{
+    if pattern == "" {
+        return value;
+    }
+    let parts = split_literal(value, pattern);
+    return join(ref parts, replacement);
+}

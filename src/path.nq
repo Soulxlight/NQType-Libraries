@@ -1,0 +1,334 @@
+fn byte_or_negative(value: str, byte_index: i32) -> i32 {
+    let current = str_get(value, byte_index);
+    match current {
+        Some(byte_value) => {
+            return byte_value;
+        },
+        None => {
+            return -1;
+        },
+    }
+}
+
+fn slice_or_empty(value: str, start_byte: i32, end_byte: i32) -> str {
+    let sliced = str_slice(value, start_byte, end_byte);
+    match sliced {
+        Some(part) => {
+            return part;
+        },
+        None => {
+            return "";
+        },
+    }
+}
+
+fn trimmed_end(value: str) -> i32 {
+    let mut end_byte = str_len(value);
+    while end_byte > 1 and byte_or_negative(value, end_byte - 1) == 47 {
+        end_byte = end_byte - 1;
+    }
+    return end_byte;
+}
+
+fn final_separator_before(value: str, end_byte: i32) -> i32 {
+    let mut cursor = end_byte - 1;
+    while cursor >= 0 {
+        if byte_or_negative(value, cursor) == 47 {
+            return cursor;
+        }
+        cursor = cursor - 1;
+    }
+    return -1;
+}
+
+fn final_dot(value: str) -> i32 {
+    let mut dot_index = -1;
+    let mut cursor = 0;
+    while cursor < str_len(value) {
+        if byte_or_negative(value, cursor) == 46 {
+            dot_index = cursor;
+        }
+        cursor = cursor + 1;
+    }
+    return dot_index;
+}
+
+fn normalized_last_component(value: str) -> str {
+    if value == "" or value == "/" {
+        return "";
+    }
+    let separator = final_separator_before(value, str_len(value));
+    return slice_or_empty(value, separator + 1, str_len(value));
+}
+
+fn normalized_pop(value: str) -> str {
+    if value == "" or value == "/" {
+        return value;
+    }
+    let separator = final_separator_before(value, str_len(value));
+    if separator < 0 {
+        return "";
+    }
+    if separator == 0 {
+        return "/";
+    }
+    return slice_or_empty(value, 0, separator);
+}
+
+fn normalized_push(value: str, component: str) -> str {
+    if value == "" {
+        return component;
+    }
+    if value == "/" {
+        return str_concat(value, component);
+    }
+    return str_concat(str_concat(value, "/"), component);
+}
+
+pub fn path_is_absolute(value: str) -> bool
+audit {
+    intent("Report whether a lexical Linux path begins at the root.");
+    mutates();
+    effects();
+}
+{
+    return str_len(value) > 0 and byte_or_negative(value, 0) == 47;
+}
+
+pub fn path_is_root(value: str) -> bool
+audit {
+    intent("Report whether a lexical path consists only of Linux separators.");
+    mutates();
+    effects();
+}
+{
+    if str_len(value) == 0 or not path_is_absolute(value) {
+        return false;
+    }
+    let mut cursor = 0;
+    while cursor < str_len(value) {
+        if byte_or_negative(value, cursor) != 47 {
+            return false;
+        }
+        cursor = cursor + 1;
+    }
+    return true;
+}
+
+pub fn path_has_trailing_separator(value: str) -> bool
+audit {
+    intent("Report whether a nonempty lexical Linux path ends with a slash.");
+    mutates();
+    effects();
+}
+{
+    return str_len(value) > 0 and byte_or_negative(value, str_len(value) - 1) == 47;
+}
+
+pub fn path_file_name(value: str) -> option<str>
+audit {
+    intent("Return the final nonempty lexical Linux path component.");
+    mutates();
+    effects();
+}
+{
+    let end_byte = trimmed_end(value);
+    if end_byte == 0 {
+        return None;
+    }
+    if end_byte == 1 and byte_or_negative(value, 0) == 47 {
+        return None;
+    }
+    let separator = final_separator_before(value, end_byte);
+    return str_slice(value, separator + 1, end_byte);
+}
+
+pub fn path_parent(value: str) -> option<str>
+audit {
+    intent("Return a dirname-style lexical parent, with no parent above root.");
+    mutates();
+    effects();
+}
+{
+    let end_byte = trimmed_end(value);
+    if end_byte == 1 and byte_or_negative(value, 0) == 47 {
+        return None;
+    }
+    if end_byte == 0 {
+        return Some(".");
+    }
+    let separator = final_separator_before(value, end_byte);
+    if separator < 0 {
+        return Some(".");
+    }
+    if separator == 0 {
+        return Some("/");
+    }
+    let mut parent_end = separator;
+    while parent_end > 1 and byte_or_negative(value, parent_end - 1) == 47 {
+        parent_end = parent_end - 1;
+    }
+    return str_slice(value, 0, parent_end);
+}
+
+pub fn path_extension(value: str) -> option<str>
+audit {
+    intent("Return the bytes after the final filename dot, excluding dotfiles.");
+    mutates();
+    effects();
+}
+{
+    let file_name = path_file_name(value);
+    match file_name {
+        Some(name) => {
+            if name == "." or name == ".." {
+                return None;
+            }
+            let dot_index = final_dot(name);
+            if dot_index <= 0 {
+                return None;
+            }
+            return str_slice(name, dot_index + 1, str_len(name));
+        },
+        None => {
+            return None;
+        },
+    }
+}
+
+pub fn path_stem(value: str) -> option<str>
+audit {
+    intent("Return the final filename without its final extension.");
+    mutates();
+    effects();
+}
+{
+    let file_name = path_file_name(value);
+    match file_name {
+        Some(name) => {
+            if name == "." or name == ".." {
+                return Some(name);
+            }
+            let dot_index = final_dot(name);
+            if dot_index <= 0 {
+                return Some(name);
+            }
+            return str_slice(name, 0, dot_index);
+        },
+        None => {
+            return None;
+        },
+    }
+}
+
+pub fn path_join(base: str, child: str) -> str
+audit {
+    intent("Join lexical Linux paths without resolving dot components.");
+    mutates();
+    effects();
+}
+{
+    if child == "" {
+        return base;
+    }
+    if path_is_absolute(child) or base == "" {
+        return child;
+    }
+    if path_has_trailing_separator(base) {
+        return str_concat(base, child);
+    }
+    return str_concat(str_concat(base, "/"), child);
+}
+
+pub fn path_components(value: str) -> list<str>
+audit {
+    intent("Collect nonempty lexical Linux path components without normalization.");
+    mutates();
+    effects();
+}
+{
+    let mut components: list<str> = list();
+    let mut cursor = 0;
+    while cursor < str_len(value) {
+        while cursor < str_len(value) and byte_or_negative(value, cursor) == 47 {
+            cursor = cursor + 1;
+        }
+        let component_start = cursor;
+        while cursor < str_len(value) and byte_or_negative(value, cursor) != 47 {
+            cursor = cursor + 1;
+        }
+        if component_start < cursor {
+            let component = slice_or_empty(value, component_start, cursor);
+            list_push(mutref components, component);
+        }
+    }
+    return components;
+}
+
+pub fn path_normalize(value: str) -> str
+audit {
+    intent("Normalize slash and dot components using lexical Linux rules only.");
+    mutates();
+    effects();
+}
+{
+    let absolute = path_is_absolute(value);
+    let mut normalized = "";
+    if absolute {
+        normalized = "/";
+    }
+
+    let mut cursor = 0;
+    while cursor < str_len(value) {
+        while cursor < str_len(value) and byte_or_negative(value, cursor) == 47 {
+            cursor = cursor + 1;
+        }
+        let component_start = cursor;
+        while cursor < str_len(value) and byte_or_negative(value, cursor) != 47 {
+            cursor = cursor + 1;
+        }
+        if component_start < cursor {
+            let component = slice_or_empty(value, component_start, cursor);
+            if component == "." {
+            } else {
+                if component == ".." {
+                    let previous = normalized_last_component(normalized);
+                    if previous != "" and previous != ".." {
+                        normalized = normalized_pop(normalized);
+                    } else {
+                        if not absolute {
+                            normalized = normalized_push(normalized, component);
+                        }
+                    }
+                } else {
+                    normalized = normalized_push(normalized, component);
+                }
+            }
+        }
+    }
+
+    if normalized == "" {
+        return ".";
+    }
+    return normalized;
+}
+
+pub fn path_normalize_join(base: str, child: str) -> str
+audit {
+    intent("Join two lexical Linux paths and normalize the result.");
+    mutates();
+    effects();
+}
+{
+    return path_normalize(path_join(base, child));
+}
+
+pub fn path_is_normalized(value: str) -> bool
+audit {
+    intent("Report whether a lexical Linux path is in this module's canonical form.");
+    mutates();
+    effects();
+}
+{
+    return path_normalize(value) == value;
+}

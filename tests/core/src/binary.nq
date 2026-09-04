@@ -1,0 +1,46 @@
+use std::stdio as stdio;
+
+fn main() -> i32
+audit {
+    intent("Round-trip arbitrary standard-input bytes through both output streams.");
+    mutates();
+    effects(io);
+}
+{
+    match stdio::read_stdin_bytes() {
+        Ok(value) => {
+            match stdio::write_stdout_bytes(ref value) {
+                Ok(_) => {
+                },
+                Err(_) => {
+                    return 1;
+                },
+            }
+            match stdio::write_stderr_bytes(ref value) {
+                Ok(_) => {
+                },
+                Err(_) => {
+                    return 2;
+                },
+            }
+            match stdio::flush_stdout() {
+                Ok(_) => {
+                },
+                Err(_) => {
+                    return 3;
+                },
+            }
+            match stdio::flush_stderr() {
+                Ok(_) => {
+                },
+                Err(_) => {
+                    return 4;
+                },
+            }
+        },
+        Err(_) => {
+            return 5;
+        },
+    }
+    return 0;
+}
