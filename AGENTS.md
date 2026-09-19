@@ -1,25 +1,29 @@
 # NQType Libraries Agent Protocol
 
-Work from the canonical root `/home/soulxlight/Documents/NQType-Libraries`.
+Work from this repository's canonical checkout. (The golden repositories
+migrated from a retired Linux host to the primary Windows workstation on
+2026-09-19; machine-local canonical paths are recorded in the local
+`$nauqtype-work` skill, and the upstream coordination ledger carries the
+"Host Migration" section.)
 
 ## Ownership
 
 This workspace owns NauqType-native library modules, library API design,
 examples, documentation, and library-specific verification.
 
-The separate repository `/home/soulxlight/Documents/NauqType` owns the
-language, compiler, runtime, builtins, workspace resolution, and upstream
-release contracts. Do not implement or repair those upstream surfaces from
-this repository.
+The separate NauqType compiler/runtime repository owns the language,
+compiler, runtime, builtins, workspace resolution, and upstream release
+contracts. Do not implement or repair those upstream surfaces from this
+repository.
 
 ## Startup
 
 1. Load and follow the `$nauqtype-work` skill, then read
-   `/home/soulxlight/Documents/NauqType/NAUQTYPE_COORDINATION.md`.
+   `NAUQTYPE_COORDINATION.md` in the canonical NauqType compiler checkout
+   (the skill records its machine-local path).
 2. Read `README.md`.
-3. Read the upstream coordination request at
-   `/home/soulxlight/Documents/NauqType/NQTYPE_LIBRARIES_NEEDS.md` and any
-   linked upstream response.
+3. Read the upstream coordination request `NQTYPE_LIBRARIES_NEEDS.md` in the
+   NauqType compiler checkout and any linked upstream response.
 4. Preserve unrelated changes and inspect repository status before editing.
 5. Keep APIs experimental while an upstream dependency is marked provisional.
 

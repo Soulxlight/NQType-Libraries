@@ -1,6 +1,9 @@
 # NQType Libraries
 
-Canonical workspace: `/home/soulxlight/Documents/NQType-Libraries`
+Canonical workspace: machine-local; recorded in the local `$nauqtype-work`
+skill. (The golden repositories migrated from a retired Linux host to the
+primary Windows workstation on 2026-09-19; GitHub
+`Soulxlight/NQType-Libraries` is the sync remote.)
 
 This repository owns reusable Nauqtype-native libraries, their public APIs,
 library examples, documentation, and library-specific tests. It does not own
@@ -100,13 +103,13 @@ streams. The pure test executable runs through both `build` and `run`.
 
 ## Ownership boundary
 
-Upstream compiler/runtime repository:
-`/home/soulxlight/Documents/NauqType`
+Upstream compiler/runtime repository: the canonical NauqType checkout
+(machine-local path recorded in the `$nauqtype-work` skill).
 
-The coordination request and frozen response live at:
+The coordination request and frozen response live in that checkout as:
 
-- `/home/soulxlight/Documents/NauqType/NQTYPE_LIBRARIES_NEEDS.md`
-- `/home/soulxlight/Documents/NauqType/NQTYPE_LIBRARIES_UPSTREAM_RESPONSE.md`
+- `NQTYPE_LIBRARIES_NEEDS.md`
+- `NQTYPE_LIBRARIES_UPSTREAM_RESPONSE.md`
 
 This repository does not modify upstream language, compiler, runtime,
 resolver, or release surfaces.
