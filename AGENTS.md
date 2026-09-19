@@ -6,6 +6,16 @@ migrated from a retired Linux host to the primary Windows workstation on
 `$nauqtype-work` skill, and the upstream coordination ledger carries the
 "Host Migration" section.)
 
+## Lead Ownership
+
+Rāchül (Kimi Code) owns this repository's development as of 2026-09-19:
+planning, module APIs, examples, docs, library tests, reviews, commits, and
+pushes. Codex agents may be assigned library work, but they operate under
+Rāchül's coordination: they receive a bounded task with an explicit write
+set, do not commit or push independently, and hand off findings, files
+changed, and checks run for Rāchül to review and land. The upstream
+NauqType compiler/runtime repository remains Codex-owned.
+
 ## Ownership
 
 This workspace owns NauqType-native library modules, library API design,
